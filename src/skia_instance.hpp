@@ -44,18 +44,61 @@ struct SkiaInstance {
     PackedByteArray bytes() const {
         SkPixmap pixmap;
         PackedByteArray bytes;
-        if (!surface) return bytes;
-        if (!surface->peekPixels(&pixmap)) return bytes;
-        SkImageInfo info = surface->imageInfo();
-        size_t bytes_per_pixel = info.bytesPerPixel(), row_bytes = pixmap.rowBytes();
+        if (!surface) {
+            return bytes;
+        }
+        if (!surface->peekPixels(&pixmap)) {
+            return bytes;
+        }
+        auto info = pixmap.info();
+        
+        // Copy pixel data
+        size_t bytes_per_pixel = info.bytesPerPixel();
+        size_t row_bytes = pixmap.rowBytes();
+        
         bytes.resize(row_bytes * info.height());
+        
+        // Sample a few pixels to check if they have data
+        uint32_t non_zero_count = 0;
+        uint32_t sample_pixels[4] = {0};
+        int sample_count = 0;
+        uint32_t min_alpha = 255, max_alpha = 0;
+        
         for (int y = 0; y < info.height(); y++) {
             for (int x = 0; x < info.width(); x++) {
                 int offset = y * row_bytes + x * bytes_per_pixel;
                 auto addr = pixmap.addr32(x, y);
-                bytes.encode_u32(offset, *addr);
+                uint32_t pixel_value = *addr;
+                bytes.encode_u32(offset, pixel_value);
+                
+                if (pixel_value != 0) {
+                    non_zero_count++;
+                    
+                    // Extract alpha channel (highest 8 bits)
+                    uint32_t alpha = (pixel_value >> 24) & 0xFF;
+                    if (alpha < min_alpha) min_alpha = alpha;
+                    if (alpha > max_alpha) max_alpha = alpha;
+                    
+                    // Sample diverse pixels: different areas and alpha values
+                    if (sample_count < 4) {
+                        // Sample from different quadrants and alpha ranges
+                        bool should_sample = false;
+                        if (sample_count == 0) should_sample = true; // First non-zero
+                        else if (sample_count == 1 && alpha > 128) should_sample = true; // High alpha
+                        else if (sample_count == 2 && (x > info.width()/2 || y > info.height()/2)) should_sample = true; // Different area
+                        else if (sample_count == 3 && alpha != (sample_pixels[0] >> 24)) should_sample = true; // Different alpha
+                        
+                        if (should_sample) {
+                            sample_pixels[sample_count] = pixel_value;
+                            sample_count++;
+                        }
+                    }
+                }
             }
         }
+        
+        // Debug: Pixel analysis completed
+        
         return bytes;
     }
 
@@ -65,7 +108,7 @@ struct SkiaInstance {
 
    private:
     void on_transform_changed() {
-        surface = SkSurface::MakeRaster(image_info());
+        surface = SkSurfaces::Raster(image_info());
         renderer = rivestd::make_unique<SkiaRenderer>(surface->getCanvas());
     }
 };

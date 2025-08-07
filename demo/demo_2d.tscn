@@ -1,13 +1,30 @@
 [gd_scene format=3 uid="uid://csjogywv8ip7t"]
 
-[node name="Demo2D" type="Node2D"]
-position = Vector2(20, 30)
-rotation = -0.0872665
+[node name="Demo2D" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="RiveViewer2D" type="RiveViewer2D" parent="."]
-file_path = "res://examples/tape.riv"
-size = Vector2(600, 600)
+[node name="RiveViewer" type="RiveViewer" parent="."]
+file_path = "res://examples/ghost.riv"
 artboard = 0
-scene = -1
+scene = 0
 animation = 0
-position = Vector2(20, 20)
+Neural = null
+Height = 60.55500000000757
+Fat = null
+Eyes = null
+EyeSize = null
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 167.0
+offset_top = 2.0
+offset_right = -171.0
+offset_bottom = 2.0
+grow_horizontal = 2
+grow_vertical = 2

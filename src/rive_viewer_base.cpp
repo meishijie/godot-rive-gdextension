@@ -56,18 +56,24 @@ void RiveViewerBase::on_draw() {
     if (!is_null(texture)) owner->draw_texture_rect(texture, Rect2(0, 0, width(), height()), false);
 }
 
-void RiveViewerBase::on_process(float delta) {
-    if (owner->is_node_ready() && !props.paused()) {
-        if (is_null(image)) image = Image::create(width(), height(), false, IMAGE_FORMAT);
-        if (is_null(texture)) texture = ImageTexture::create_from_image(image);
-        PackedByteArray bytes = frame(delta);
-        if (bytes.size()) {
-            image->set_data(width(), height(), false, IMAGE_FORMAT, bytes);
-            texture->update(image);
-            owner->queue_redraw();
-        }
-        check_scene_property_changed();
+void RiveViewerBase::on_process(double delta) {
+    if (props.paused()) {
+        return;
     }
+
+    PackedByteArray bytes = frame(delta);
+    if (bytes.is_empty()) {
+        return;
+    }
+
+    // Update the image and texture with the new frame data
+    if (!is_null(image) && !is_null(texture)) {
+        image->set_data(width(), height(), false, IMAGE_FORMAT, bytes);
+        texture->update(image);
+    }
+
+    // frame() already calls advance(), so we don't need to call it again
+    owner->queue_redraw();
 }
 
 void RiveViewerBase::on_ready() {
@@ -99,7 +105,7 @@ int RiveViewerBase::height() const {
 void RiveViewerBase::_on_path_changed(String path) {
     try {
         inst.file = RiveFile::Load(path, sk.factory.get());
-        GDPRINT("Successfully imported <", path, ">!");
+        // Successfully imported file
     } catch (RiveException error) {
         error.report();
     }
@@ -133,11 +139,25 @@ void RiveViewerBase::get_property_list(List<PropertyInfo> *list) const {
 
 void RiveViewerBase::_on_artboard_changed(int _index) {
     owner->notify_property_list_changed();
+    // Reset elapsed time when artboard changes
+    elapsed = 0.0f;
+    // Reset the instance to start from beginning
+    inst.reset();
+    // Trigger re-render when artboard changes
+    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_scene_changed(int _index) {
     cached_scene_property_values.clear();
     owner->notify_property_list_changed();
+    // Reset elapsed time when scene changes
+    elapsed = 0.0f;
+    // Reset the instance to start from beginning
+    inst.reset();
+    // Apply the first frame immediately after reset
+    inst.advance(0.0f);
+    // Trigger re-render when scene changes
+    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_animation_changed(int _index) {
@@ -149,20 +169,45 @@ void RiveViewerBase::_on_animation_changed(int _index) {
     } catch (RiveException error) {
         error.report();
     }
+
+    // Reset elapsed time when animation changes
+    elapsed = 0.0f;
+
+    // Ensure instantiation to make sure animation instances exist
+    inst.instantiate();
+
+    // Get the animation before any reset operations
+    auto animation = inst.animation();
+    if (exists(animation)) {
+        // Reset the animation to start from beginning
+        animation->reset();
+        
+        // Set animation to loop mode (1 = Loop::loop)
+        animation->set_loop_mode(1);
+        
+        // Apply the first frame immediately
+        inst.advance(0.0f);
+    }
+
+    // Trigger re-render when animation changes
+    _on_transform_changed();
 }
 
 bool RiveViewerBase::on_set(const StringName &prop, const Variant &value) {
     String name = prop;
     if (name == "artboard") {
         props.artboard((int)value);
+        inst.instantiate();  // Ensure instantiation after artboard change
         return true;
     }
     if (name == "scene") {
         props.scene((int)value);
+        inst.instantiate();  // Ensure instantiation after scene change
         return true;
     }
     if (name == "animation") {
         props.animation((int)value);
+        inst.instantiate();  // Ensure instantiation after animation change
         return true;
     }
     inst.instantiate();
@@ -203,33 +248,56 @@ void RiveViewerBase::_on_size_changed(float w, float h) {
 
 void RiveViewerBase::_on_transform_changed() {
     if (sk.renderer) sk.renderer->transform(inst.current_transform);
-    PackedByteArray bytes = frame(0.0);
-    if (bytes.size()) {
-        image->set_data(width(), height(), false, IMAGE_FORMAT, bytes);
-        texture->update(image);
+    PackedByteArray bytes = redraw();
+    
+    // Update image and texture with new frame data
+    if (bytes.size() > 0) {
+        image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
+        texture->set_image(image);
         owner->queue_redraw();
     }
 }
 
 bool RiveViewerBase::advance(float delta) {
     elapsed += delta;
-    return inst.advance(delta);
+    bool result = inst.advance(delta);
+    return result;
 }
 
 PackedByteArray RiveViewerBase::redraw() {
     auto artboard = inst.artboard();
+    
     if (sk.surface && sk.renderer && exists(artboard)) {
         sk.clear();
         inst.draw(sk.renderer.get());
-        return sk.bytes();
+        PackedByteArray bytes = sk.bytes();
+        return bytes;
     }
+    
     return PackedByteArray();
 }
 
 PackedByteArray RiveViewerBase::frame(float delta) {
-    if (!exists(inst.file) || !exists(inst.artboard()) || !sk.renderer || !sk.surface) return PackedByteArray();
-    if (advance(delta) && owner->is_visible()) return redraw();
-    return PackedByteArray();
+    if (!owner->is_visible_in_tree()) {
+        return PackedByteArray();
+    }
+
+    if (!exists(inst.file) || !exists(inst.artboard()) || !sk.renderer || !sk.surface) {
+        return PackedByteArray();
+    }
+
+    elapsed += delta;
+    inst.advance(delta);
+
+    PackedByteArray bytes = redraw();
+
+    if (bytes.size() > 0) {
+        image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
+        texture->set_image(image);
+        owner->queue_redraw();
+    }
+
+    return bytes;
 }
 
 float RiveViewerBase::get_elapsed_time() const {

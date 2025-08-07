@@ -75,10 +75,19 @@ struct RiveInstance {
         auto sm = scene();
         auto anim = animation();
         auto ab = artboard();
-        if (exists(sm)) return sm->scene->advanceAndApply(delta);
-        else if (exists(anim)) return anim->animation->advanceAndApply(delta);
-        else if (exists(ab)) return ab->artboard->advance(delta);
-        else return false;
+        
+        if (exists(sm)) {
+            return sm->scene->advanceAndApply(delta);
+        }
+        else if (exists(anim)) {
+            return anim->animation->advanceAndApply(delta);
+        }
+        else if (exists(ab)) {
+            return ab->artboard->advance(delta);
+        }
+        else {
+            return false;
+        }
     }
 
     void press_mouse(godot::Vector2 position) {

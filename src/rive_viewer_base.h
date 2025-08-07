@@ -72,7 +72,7 @@ class RiveViewerBase {
 
     void on_ready();
     void on_draw();
-    void on_process(float delta);
+    void on_process(double delta);
     void on_input_event(const Ref<InputEvent> &event);
     void get_property_list(List<PropertyInfo> *p_list) const;
     bool on_set(const StringName &prop, const Variant &value);
@@ -217,8 +217,15 @@ class RiveViewerBase {
         base.on_draw();                                                      \
     }                                                                        \
     void _ready() override {                                                 \
-        set_process_internal(true);                                          \
+        Node::set_process_internal(true);                                    \
+        Node::set_process(true);                                             \
         base.on_ready();                                                     \
+    }                                                                        \
+    void _process_internal(double delta) {                          \
+        base.on_process(delta);                                              \
+    }                                                                        \
+    void _process(double delta) {                                            \
+        base.on_process(delta);                                              \
     }                                                                        \
     void _get_property_list(List<PropertyInfo> *list) const {                \
         base.get_property_list(list);                                        \

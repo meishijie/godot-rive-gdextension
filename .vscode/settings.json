@@ -107,5 +107,6 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
-    "python.formatting.provider": "none"
+    "python.formatting.provider": "none",
+    "godotTools.editorPath.godot4": "/Volumes/meiMacMedia/移动硬盘软件/Godot.app"
 }

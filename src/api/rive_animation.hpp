@@ -10,9 +10,11 @@
 
 // rive-cpp
 #include <rive/animation/linear_animation_instance.hpp>
+#include <rive/animation/loop.hpp>
 
 // extension
 #include "utils/types.hpp"
+#include "utils/godot_macros.hpp"
 
 using namespace godot;
 
@@ -34,6 +36,8 @@ class RiveAnimation : public Resource {
         ClassDB::bind_method(D_METHOD("get_duration"), &RiveAnimation::get_duration);
         ClassDB::bind_method(D_METHOD("get_current_time"), &RiveAnimation::get_current_time);
         ClassDB::bind_method(D_METHOD("get_current_direction"), &RiveAnimation::get_current_direction);
+        ClassDB::bind_method(D_METHOD("get_loop_mode"), &RiveAnimation::get_loop_mode);
+        ClassDB::bind_method(D_METHOD("set_loop_mode", "loop_mode"), &RiveAnimation::set_loop_mode);
         ClassDB::bind_method(D_METHOD("reset", "speed_multiplier"), &RiveAnimation::reset);
     }
 
@@ -77,6 +81,17 @@ class RiveAnimation : public Resource {
 
     int get_current_direction() const {
         return animation ? animation->direction() : 1;
+    }
+
+    int get_loop_mode() const {
+        return animation ? animation->loopValue() : 0;
+    }
+
+    void set_loop_mode(int loop_mode) {
+        if (animation) {
+            animation->loopValue(loop_mode);
+            // Set animation loop mode
+        }
     }
 
     void reset(float speed_multiplier = 1.0) {

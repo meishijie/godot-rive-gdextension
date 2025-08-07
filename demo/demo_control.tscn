@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://b0uivr6mrq7ww"]
 
-[ext_resource type="Script" path="res://demo_control.gd" id="1_hl33n"]
+[ext_resource type="Script" uid="uid://dwgx8rvieqcp8" path="res://demo_control.gd" id="1_hl33n"]
 
 [node name="DemoControl" type="VBoxContainer"]
 anchors_preset = 15
@@ -27,9 +27,8 @@ tick_count = 4
 [node name="RiveViewer" type="RiveViewer" parent="."]
 file_path = "res://examples/house_resizing.riv"
 artboard = 0
-scene = 0
-animation = -1
-Rooms = 1.0
+scene = -1
+animation = 3
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3

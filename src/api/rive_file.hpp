@@ -87,7 +87,7 @@ class RiveFile : public Resource {
             Ptr<rive::File> file = read_rive_file(path, factory);
             if (file != nullptr) {
                 auto file_wrapper = RiveFile::MakeRef(std::move(file), path);
-                GDPRINT("Successfully imported <", path, ">!");
+                // Successfully imported file
                 return file_wrapper;
             } else throw RiveException("Unable to import <" + path + ">");
         } catch (RiveException error) {
