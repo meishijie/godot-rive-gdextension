@@ -3,11 +3,13 @@
 #include <algorithm>
 
 // godot-cpp
+#include <godot_cpp/classes/control.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/rendering_device.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/core/binder_common.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 // rive-cpp
 #include <rive/animation/linear_animation.hpp>
@@ -78,7 +80,9 @@ void RiveViewerBase::on_process(double delta) {
 
 void RiveViewerBase::on_ready() {
     elapsed = 0.0;
-    props.size(width(), height());
+    int w = width();
+    int h = height();
+    props.size(w, h);
 }
 
 void RiveViewerBase::check_scene_property_changed() {
@@ -95,11 +99,19 @@ void RiveViewerBase::check_scene_property_changed() {
 }
 
 int RiveViewerBase::width() const {
-    return std::max(get_size().x, (real_t)1);
+    Vector2 size = get_size();
+    int result = std::max(size.x, (real_t)1);
+    // Only print debug info occasionally to avoid spam
+    static int debug_counter = 0;
+    return result;
 }
 
 int RiveViewerBase::height() const {
-    return std::max(get_size().y, (real_t)1);
+    Vector2 size = get_size();
+    int result = std::max(size.y, (real_t)1);
+    // Only print debug info occasionally to avoid spam
+    static int debug_counter = 0;
+    return result;
 }
 
 void RiveViewerBase::_on_path_changed(String path) {
@@ -143,8 +155,6 @@ void RiveViewerBase::_on_artboard_changed(int _index) {
     elapsed = 0.0f;
     // Reset the instance to start from beginning
     inst.reset();
-    // Trigger re-render when artboard changes
-    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_scene_changed(int _index) {
@@ -152,12 +162,12 @@ void RiveViewerBase::_on_scene_changed(int _index) {
     owner->notify_property_list_changed();
     // Reset elapsed time when scene changes
     elapsed = 0.0f;
+    // Ensure proper dimensions are set by triggering size change
+    _on_size_changed(width(), height());
     // Reset the instance to start from beginning
     inst.reset();
     // Apply the first frame immediately after reset
     inst.advance(0.0f);
-    // Trigger re-render when scene changes
-    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_animation_changed(int _index) {
@@ -172,6 +182,8 @@ void RiveViewerBase::_on_animation_changed(int _index) {
 
     // Reset elapsed time when animation changes
     elapsed = 0.0f;
+    // Reset the instance to clear any previous state
+    inst.reset();
 
     // Ensure instantiation to make sure animation instances exist
     inst.instantiate();
@@ -179,18 +191,26 @@ void RiveViewerBase::_on_animation_changed(int _index) {
     // Get the animation before any reset operations
     auto animation = inst.animation();
     if (exists(animation)) {
+        // UtilityFunctions::print("[RiveViewer] Animation exists, resetting and setting loop mode");
         // Reset the animation to start from beginning
         animation->reset();
-        
+
         // Set animation to loop mode (1 = Loop::loop)
         animation->set_loop_mode(1);
-        
+
         // Apply the first frame immediately
         inst.advance(0.0f);
+    } else {
+        // When no animation is selected, ensure artboard is in clean state
+        auto artboard = inst.artboard();
+        if (exists(artboard)) {
+            artboard->artboard->advance(0.0f);
+        }
     }
 
-    // Trigger re-render when animation changes
-    _on_transform_changed();
+    // Force recalculation of transform to ensure proper positioning
+    inst.current_transform = inst.get_transform();
+
 }
 
 bool RiveViewerBase::on_set(const StringName &prop, const Variant &value) {
@@ -240,22 +260,42 @@ bool RiveViewerBase::on_get(const StringName &prop, Variant &return_value) const
 }
 
 void RiveViewerBase::_on_size_changed(float w, float h) {
-    if (!is_null(image)) unref(image);
-    if (!is_null(texture)) unref(texture);
+
+    if (!is_null(image)) {
+        unref(image);
+    }
+    if (!is_null(texture)) {
+        unref(texture);
+    }
+
     image = Image::create(width(), height(), false, IMAGE_FORMAT);
     texture = ImageTexture::create_from_image(image);
+    // Recalculate transform when size changes to ensure proper centering
+    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_transform_changed() {
-    if (sk.renderer) sk.renderer->transform(inst.current_transform);
-    PackedByteArray bytes = redraw();
-    
-    // Update image and texture with new frame data
-    if (bytes.size() > 0) {
-        image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
-        texture->set_image(image);
-        owner->queue_redraw();
+
+    // Update current_transform first to ensure it reflects latest fit/alignment settings
+    inst.current_transform = inst.get_transform();
+
+    if (sk.renderer) {
+        sk.renderer->transform(inst.current_transform);
+    } else {
+        UtilityFunctions::print("[RiveViewer] WARNING: No renderer available!");
     }
+
+    // PackedByteArray bytes = redraw();
+    // // Update image and texture with new frame data
+    // if (bytes.size() > 0 && !is_null(image) && !is_null(texture)) {
+    //     // Ensure image size matches expected size
+    //     int expected_size = width() * height() * 4; // RGBA8 = 4 bytes per pixel
+    //     if (bytes.size() == expected_size) {
+    //         // image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
+    //         // texture->set_image(image);
+    //         // owner->queue_redraw();
+    //     }
+    // }
 }
 
 bool RiveViewerBase::advance(float delta) {
@@ -266,14 +306,14 @@ bool RiveViewerBase::advance(float delta) {
 
 PackedByteArray RiveViewerBase::redraw() {
     auto artboard = inst.artboard();
-    
+
     if (sk.surface && sk.renderer && exists(artboard)) {
         sk.clear();
         inst.draw(sk.renderer.get());
         PackedByteArray bytes = sk.bytes();
         return bytes;
     }
-    
+
     return PackedByteArray();
 }
 
@@ -291,10 +331,14 @@ PackedByteArray RiveViewerBase::frame(float delta) {
 
     PackedByteArray bytes = redraw();
 
-    if (bytes.size() > 0) {
-        image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
-        texture->set_image(image);
-        owner->queue_redraw();
+    if (bytes.size() > 0 && !is_null(image) && !is_null(texture)) {
+        // Ensure image size matches expected size
+        int expected_size = width() * height() * 4; // RGBA8 = 4 bytes per pixel
+        if (bytes.size() == expected_size) {
+            image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
+            texture->set_image(image);
+            owner->queue_redraw();
+        }
     }
 
     return bytes;

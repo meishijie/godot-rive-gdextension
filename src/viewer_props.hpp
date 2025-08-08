@@ -272,6 +272,7 @@ struct ViewerProps {
             _scene = index;
             scene_changed.emit(index);
             scene_properties_changed.emit();
+            transform_changed.emit();
         }
     }
 
@@ -279,6 +280,7 @@ struct ViewerProps {
         if (index != _animation) {
             _animation = index;
             animation_changed.emit(index);
+            transform_changed.emit();
         }
     }
 
