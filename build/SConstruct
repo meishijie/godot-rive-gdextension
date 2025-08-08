@@ -35,7 +35,7 @@ SKIA_SRC_DIR = "../thirdparty/rive-cpp/skia/dependencies/skia"
 env.RequireFile(Dir(SKIA_SRC_DIR))
 env.Prepend(
     LIBS=["skia"],
-    LIBPATH=[join(SKIA_SRC_DIR, "out/static")],
+    LIBPATH=[join(SKIA_SRC_DIR, "out/Static")],
     CPPPATH=[
         SKIA_SRC_DIR,
         join(SKIA_SRC_DIR, "include"),

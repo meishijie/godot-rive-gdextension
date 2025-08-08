@@ -1,4 +1,6 @@
-[gd_scene format=3 uid="uid://csjogywv8ip7t"]
+[gd_scene load_steps=2 format=3 uid="uid://csjogywv8ip7t"]
+
+[ext_resource type="Script" uid="uid://dlbxjgo307mh6" path="res://demo_2d.gd" id="1_8x9vj"]
 
 [node name="Demo2D" type="Control"]
 layout_mode = 3
@@ -7,16 +9,57 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_8x9vj")
 
-[node name="RiveViewer" type="RiveViewer" parent="."]
-file_path = "res://examples/juice.riv"
-artboard = 0
-scene = -1
-animation = 0
+[node name="UI" type="Control" parent="."]
 layout_mode = 1
-anchors_preset = -1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = -51.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="StatusLabel" type="Label" parent="UI"]
+layout_mode = 1
+anchors_preset = -1
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -80.0
+offset_right = 400.0
+offset_bottom = -10.0
+grow_vertical = 0
+text = "Loading Rive files..."
+vertical_alignment = 2
+
+[node name="InstructionLabel" type="Label" parent="UI"]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -80.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "SPACE: Next file
+R: Reload current
+ESC: Exit"
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="RiveViewer" type="RiveViewer" parent="."]
+file_path = "res://examples/meteor.riv"
+artboard = 0
+scene = -1
+animation = -1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2

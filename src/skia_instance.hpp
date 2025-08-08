@@ -1,13 +1,16 @@
 #ifndef _RIVEEXTENSION_SKIA_INSTANCE_HPP_
 #define _RIVEEXTENSION_SKIA_INSTANCE_HPP_
 
+// stdlib
+#include <cstdio>
+
 // godot-cpp
 #include <godot_cpp/variant/builtin_types.hpp>
 
 // skia
-#include <skia/dependencies/skia/include/core/SkBitmap.h>
-#include <skia/dependencies/skia/include/core/SkCanvas.h>
-#include <skia/dependencies/skia/include/core/SkSurface.h>
+#include "include/core/SkBitmap.h"
+#include "include/core/SkCanvas.h"
+#include "include/core/SkSurface.h"
 
 #include <skia/renderer/include/skia_factory.hpp>
 #include <skia/renderer/include/skia_renderer.hpp>
@@ -108,8 +111,20 @@ struct SkiaInstance {
 
    private:
     void on_transform_changed() {
-        surface = SkSurfaces::Raster(image_info());
+        auto info = image_info();
+        surface = SkSurfaces::Raster(info);
+        if (!surface) {
+            printf("[RiveViewer] ERROR: Failed to create SkSurface with dimensions %dx%d\n", 
+                   info.width(), info.height());
+            return;
+        }
         renderer = rivestd::make_unique<SkiaRenderer>(surface->getCanvas());
+        if (!renderer) {
+            printf("[RiveViewer] ERROR: Failed to create SkiaRenderer\n");
+        } else {
+            printf("[RiveViewer] SUCCESS: Created renderer with surface %dx%d\n", 
+                   info.width(), info.height());
+        }
     }
 };
 

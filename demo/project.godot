@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Rive Extension"
-run/main_scene="uid://csjogywv8ip7t"
+run/main_scene="res://animation_switch_test.tscn"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 

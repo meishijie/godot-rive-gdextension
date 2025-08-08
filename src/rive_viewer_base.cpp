@@ -100,29 +100,37 @@ void RiveViewerBase::check_scene_property_changed() {
 
 int RiveViewerBase::width() const {
     Vector2 size = get_size();
-    int result = std::max(size.x, (real_t)1);
-    // Only print debug info occasionally to avoid spam
-    static int debug_counter = 0;
-    return result;
+    return std::max(size.x, (real_t)1);
 }
 
 int RiveViewerBase::height() const {
     Vector2 size = get_size();
-    int result = std::max(size.y, (real_t)1);
-    // Only print debug info occasionally to avoid spam
-    static int debug_counter = 0;
-    return result;
+    return std::max(size.y, (real_t)1);
 }
 
 void RiveViewerBase::_on_path_changed(String path) {
     try {
         inst.file = RiveFile::Load(path, sk.factory.get());
-        // Successfully imported file
     } catch (RiveException error) {
         error.report();
     }
+
     if (exists(inst.file)) {
-        _on_size_changed(props.width(), props.height());
+        if (inst.file->get_artboard_count() > 0) {
+            props.artboard(0);
+            inst.instantiate();
+
+            auto artboard = inst.artboard();
+            if (exists(artboard) && artboard->get_scene_count() > 0) {
+                props.scene(0);
+                props.animation(-1);
+                inst.instantiate();
+            } else if (exists(artboard) && artboard->get_animation_count() > 0) {
+                props.animation(0);
+                inst.instantiate();
+            }
+        }
+
         if (is_editor_hint()) owner->notify_property_list_changed();
     }
 }
@@ -151,83 +159,32 @@ void RiveViewerBase::get_property_list(List<PropertyInfo> *list) const {
 
 void RiveViewerBase::_on_artboard_changed(int _index) {
     owner->notify_property_list_changed();
-    // Reset elapsed time when artboard changes
-    elapsed = 0.0f;
-    // Reset the instance to start from beginning
-    inst.reset();
 }
 
 void RiveViewerBase::_on_scene_changed(int _index) {
     cached_scene_property_values.clear();
     owner->notify_property_list_changed();
-    // Reset elapsed time when scene changes
-    elapsed = 0.0f;
-    // Ensure proper dimensions are set by triggering size change
-    _on_size_changed(width(), height());
-    // Reset the instance to start from beginning
-    inst.reset();
-    // Apply the first frame immediately after reset
-    inst.advance(0.0f);
 }
 
 void RiveViewerBase::_on_animation_changed(int _index) {
-    try {
-        if (props.scene() != -1)
-            throw RiveException("Animation will not play because a scene is selected.")
-                .from(owner, "set_animation")
-                .warning();
-    } catch (RiveException error) {
-        error.report();
-    }
-
-    // Reset elapsed time when animation changes
-    elapsed = 0.0f;
-    // Reset the instance to clear any previous state
-    inst.reset();
-
-    // Ensure instantiation to make sure animation instances exist
-    inst.instantiate();
-
-    // Get the animation before any reset operations
-    auto animation = inst.animation();
-    if (exists(animation)) {
-        // UtilityFunctions::print("[RiveViewer] Animation exists, resetting and setting loop mode");
-        // Reset the animation to start from beginning
-        animation->reset();
-
-        // Set animation to loop mode (1 = Loop::loop)
-        animation->set_loop_mode(1);
-
-        // Apply the first frame immediately
-        inst.advance(0.0f);
-    } else {
-        // When no animation is selected, ensure artboard is in clean state
-        auto artboard = inst.artboard();
-        if (exists(artboard)) {
-            artboard->artboard->advance(0.0f);
-        }
-    }
-
-    // Force recalculation of transform to ensure proper positioning
-    inst.current_transform = inst.get_transform();
-
+    // Method intentionally left minimal to avoid position offset issues
 }
 
 bool RiveViewerBase::on_set(const StringName &prop, const Variant &value) {
     String name = prop;
     if (name == "artboard") {
         props.artboard((int)value);
-        inst.instantiate();  // Ensure instantiation after artboard change
+        inst.instantiate();
         return true;
     }
     if (name == "scene") {
         props.scene((int)value);
-        inst.instantiate();  // Ensure instantiation after scene change
+        inst.instantiate();
         return true;
     }
     if (name == "animation") {
         props.animation((int)value);
-        inst.instantiate();  // Ensure instantiation after animation change
+        inst.instantiate();
         return true;
     }
     inst.instantiate();
@@ -260,7 +217,6 @@ bool RiveViewerBase::on_get(const StringName &prop, Variant &return_value) const
 }
 
 void RiveViewerBase::_on_size_changed(float w, float h) {
-
     if (!is_null(image)) {
         unref(image);
     }
@@ -270,32 +226,24 @@ void RiveViewerBase::_on_size_changed(float w, float h) {
 
     image = Image::create(width(), height(), false, IMAGE_FORMAT);
     texture = ImageTexture::create_from_image(image);
-    // Recalculate transform when size changes to ensure proper centering
-    _on_transform_changed();
 }
 
 void RiveViewerBase::_on_transform_changed() {
-
-    // Update current_transform first to ensure it reflects latest fit/alignment settings
     inst.current_transform = inst.get_transform();
 
     if (sk.renderer) {
         sk.renderer->transform(inst.current_transform);
-    } else {
-        UtilityFunctions::print("[RiveViewer] WARNING: No renderer available!");
     }
 
-    // PackedByteArray bytes = redraw();
-    // // Update image and texture with new frame data
-    // if (bytes.size() > 0 && !is_null(image) && !is_null(texture)) {
-    //     // Ensure image size matches expected size
-    //     int expected_size = width() * height() * 4; // RGBA8 = 4 bytes per pixel
-    //     if (bytes.size() == expected_size) {
-    //         // image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
-    //         // texture->set_image(image);
-    //         // owner->queue_redraw();
-    //     }
-    // }
+    PackedByteArray bytes = redraw();
+    if (bytes.size() > 0 && !is_null(image) && !is_null(texture)) {
+        int expected_size = width() * height() * 4; // RGBA8 = 4 bytes per pixel
+        if (bytes.size() == expected_size) {
+            image->set_data(width(), height(), false, Image::FORMAT_RGBA8, bytes);
+            texture->set_image(image);
+            owner->queue_redraw();
+        }
+    }
 }
 
 bool RiveViewerBase::advance(float delta) {

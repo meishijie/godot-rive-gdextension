@@ -117,7 +117,7 @@ class RiveFile : public Resource {
     }
 
     int get_artboard_count() const {
-        return artboards.get_size();
+        return file ? file->artboardCount() : 0;
     }
 
     Ref<RiveArtboard> get_artboard(int index) {
