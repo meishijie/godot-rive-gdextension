@@ -1,0 +1,113 @@
+[gd_scene load_steps=2 format=3 uid="uid://simple_rive_demo"]
+
+[ext_resource type="Script" path="res://simple_rive_loader_demo.gd" id="1"]
+
+[node name="SimpleRiveLoaderDemo" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1")
+
+[node name="HBox" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="RiveViewer" type="RiveViewer" parent="HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 2.0
+
+[node name="ControlPanel" type="Panel" parent="HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="VBox" type="VBoxContainer" parent="HBox/ControlPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="TitleLabel" type="Label" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "简单Rive加载器"
+horizontal_alignment = 1
+
+[node name="HSeparator" type="HSeparator" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="FilePathEdit" type="LineEdit" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+placeholder_text = "文件路径"
+
+[node name="LoadButton" type="Button" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "加载文件"
+
+[node name="HSeparator2" type="HSeparator" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="FileListLabel" type="Label" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "预设文件:"
+
+[node name="FileList" type="ItemList" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HSeparator3" type="HSeparator" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="InfoLabel" type="Label" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "文件信息"
+autowrap_mode = 2
+
+[node name="HSeparator4" type="HSeparator" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="SceneHBox" type="HBoxContainer" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="SceneLabel" type="Label" parent="HBox/ControlPanel/VBox/SceneHBox"]
+layout_mode = 2
+text = "场景:"
+custom_minimum_size = Vector2(50, 0)
+
+[node name="SceneSpin" type="SpinBox" parent="HBox/ControlPanel/VBox/SceneHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AnimationHBox" type="HBoxContainer" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="AnimationLabel" type="Label" parent="HBox/ControlPanel/VBox/AnimationHBox"]
+layout_mode = 2
+text = "动画:"
+custom_minimum_size = Vector2(50, 0)
+
+[node name="AnimationSpin" type="SpinBox" parent="HBox/ControlPanel/VBox/AnimationHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PauseButton" type="Button" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "暂停"
+
+[node name="HSeparator5" type="HSeparator" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+
+[node name="HelpLabel" type="Label" parent="HBox/ControlPanel/VBox"]
+layout_mode = 2
+text = "快捷键:
+F2 - 下一个文件
+F3 - 上一个文件
+空格 - 暂停/播放
+ESC - 退出"
+autowrap_mode = 2

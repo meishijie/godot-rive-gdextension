@@ -8,6 +8,7 @@ var cycle_timer = 0.0
 var cycle_interval = 3.0
 var current_animation_index = -1
 var current_file_index = 0
+var selected_input_index := 0
 
 # 可用的 Rive 文件列表
 var rive_files = [
@@ -108,24 +109,19 @@ func setup_scene_and_animation():
 	print("[AnimationSwitchTest] Scene count: ", scene_count, ", Animation count: ", animation_count)
 
 	if scene_count > 0:
-		# 如果有 scene，使用第一个 scene，并尝试播放第一个动画
-		if animation_count > 0:
-			print("[AnimationSwitchTest] Using scene mode with animation (scene=0, animation=0)")
-			rive_viewer.scene = 0
-			rive_viewer.animation = 1
-			current_animation_index = 1
-		else:
-			print("[AnimationSwitchTest] Using scene mode without animation (scene=0, animation=-1)")
-			rive_viewer.scene = 0
-			rive_viewer.animation = -1
-			current_animation_index = -1
+		# 如果有 scene，默认切到第一个 scene，动画None
+		print("[AnimationSwitchTest] Using scene mode (scene=0, animation=-1)")
+		rive_viewer.scene = 0
+		rive_viewer.animation = -1
+		current_animation_index = -1
+		selected_input_index = 0
 	else:
 		# 如果没有 scene，直接播放第一个动画
 		if animation_count > 0:
 			print("[AnimationSwitchTest] No scenes available, using animation mode (scene=-1, animation=0)")
 			rive_viewer.scene = -1
 			rive_viewer.animation = 0
-			current_animation_index =0
+			current_animation_index = 0
 		else:
 			print("[AnimationSwitchTest] No scenes or animations available (scene=-1, animation=-1)")
 			rive_viewer.scene = -1
@@ -173,6 +169,81 @@ func set_animation(index: int):
 		print("[AnimationSwitchTest] Before: ", viewer_rect)
 		print("[AnimationSwitchTest] After: ", viewer_rect_after)
 
+func set_scene(index: int):
+	print("[AnimationSwitchTest] Setting scene to index: ", index)
+	rive_viewer.scene = index
+	# 如果进入 scene 模式，动画通常不会生效，将动画索引设为-1 以避免误导
+	if index != -1:
+		current_animation_index = -1
+	selected_input_index = 0
+	await get_tree().process_frame
+	update_status()
+
+func next_prev_animation(step: int):
+	var artboard = rive_viewer.get_artboard()
+	if artboard == null:
+		return
+	var animation_count = artboard.get_animation_count()
+	if animation_count == 0:
+		current_animation_index = -1
+		set_animation(-1)
+		return
+	var next_index = current_animation_index
+	if next_index == -1:
+		next_index = 0 if step > 0 else animation_count - 1
+	else:
+		next_index = clamp(next_index + step, -1, animation_count - 1)
+	set_animation(next_index)
+	update_status()
+
+func next_prev_scene(step: int):
+	var artboard = rive_viewer.get_artboard()
+	if artboard == null:
+		return
+	var scene_count = 0
+	if artboard.has_method("get_scene_count"):
+		scene_count = artboard.get_scene_count()
+	if scene_count == 0:
+		set_scene(-1)
+		return
+	var curr := int(rive_viewer.scene)
+	if curr == -1:
+		curr = 0 if step > 0 else scene_count - 1
+	else:
+		curr = clamp(curr + step, -1, scene_count - 1)
+	set_scene(curr)
+
+func select_input(step: int):
+	var scene = rive_viewer.get_scene()
+	if scene == null:
+		return
+	var count = scene.get_input_count()
+	if count <= 0:
+		return
+	selected_input_index = clamp(selected_input_index + step, 0, count - 1)
+	update_status()
+
+func toggle_selected_bool():
+	var scene = rive_viewer.get_scene()
+	if scene == null:
+		return
+	var input: RiveInput = scene.get_input(selected_input_index)
+	if input and input.is_bool():
+		input.set_value(!bool(input.get_value()))
+		print("[AnimationSwitchTest] Toggled bool input:", input.get_name(), "=>", input.get_value())
+		update_status()
+
+func adjust_selected_number(delta_value: float):
+	var scene = rive_viewer.get_scene()
+	if scene == null:
+		return
+	var input: RiveInput = scene.get_input(selected_input_index)
+	if input and input.is_number():
+		var v = float(input.get_value()) + delta_value
+		input.set_value(v)
+		print("[AnimationSwitchTest] Adjusted number input:", input.get_name(), "=>", input.get_value())
+		update_status()
+
 func update_status():
 	var status_text = ""
 
@@ -189,14 +260,17 @@ func update_status():
 
 	# 显示 scene 信息
 	var scene_count = 0
+	var scene_name = "None"
 	if artboard.has_method("get_scene_count"):
 		scene_count = artboard.get_scene_count()
-
-	status_text += "Scene: %d (Total: %d)\n" % [rive_viewer.scene, scene_count]
+		if rive_viewer.scene >= 0 and rive_viewer.scene < scene_count:
+			var sc = artboard.get_scene(rive_viewer.scene)
+			if sc and sc.has_method("get_name"):
+				scene_name = sc.get_name()
+	status_text += "Scene: %d/%d (%s)\n" % [rive_viewer.scene, scene_count, scene_name]
 
 	# 显示动画信息
 	var animation_count = artboard.get_animation_count()
-
 	if current_animation_index == -1:
 		status_text += "Animation: None"
 	else:
@@ -205,8 +279,22 @@ func update_status():
 		if animation != null and animation.has_method("get_name"):
 			animation_name = animation.get_name()
 		status_text += "Animation: %s (Index: %d)" % [animation_name, current_animation_index]
-
 	status_text += "\nTotal animations: %d" % animation_count
+
+	# 输入变量信息（仅 scene 模式）
+	var scene_ref = rive_viewer.get_scene()
+	if scene_ref != null:
+		var input_count = scene_ref.get_input_count()
+		status_text += "\nInputs: %d" % input_count
+		if input_count > 0:
+			selected_input_index = clamp(selected_input_index, 0, input_count - 1)
+			var sel: RiveInput = scene_ref.get_input(selected_input_index)
+			if sel != null:
+				var type_str = "bool" if sel.is_bool() else ("number" if sel.is_number() else "unknown")
+				status_text += "\nSelected Input [%d]: %s (%s) = %s" % [selected_input_index, sel.get_name(), type_str, str(sel.get_value())]
+			else:
+				status_text += "\nSelected Input [%d]: null" % selected_input_index
+
 	if auto_cycle:
 		status_text += "\nAuto cycling: ON"
 	else:
@@ -216,6 +304,8 @@ func update_status():
 
 func _input(event):
 	if event is InputEventKey and event.pressed:
+		var e := event as InputEventKey
+		var shift: bool = e.shift_pressed
 		match event.keycode:
 			KEY_1:
 				print("[AnimationSwitchTest] Manual switch to animation 0")
@@ -229,10 +319,30 @@ func _input(event):
 				print("[AnimationSwitchTest] Manual switch to animation 2")
 				set_animation(2)
 				update_status()
+			KEY_LEFT:
+				next_prev_animation(-1)
+			KEY_RIGHT:
+				next_prev_animation(1)
 			KEY_N:
 				print("[AnimationSwitchTest] Manual switch to none")
 				set_animation(-1)
 				update_status()
+			KEY_Q:
+				next_prev_scene(-1)
+			KEY_E:
+				next_prev_scene(1)
+			KEY_M:
+				set_scene(-1) # 退出 scene 模式
+			KEY_BRACKETLEFT:
+				select_input(-1)
+			KEY_BRACKETRIGHT:
+				select_input(1)
+			KEY_T:
+				toggle_selected_bool()
+			KEY_UP, KEY_EQUAL:
+				adjust_selected_number(1.0 if shift else 0.1)
+			KEY_DOWN, KEY_MINUS:
+				adjust_selected_number(-(1.0 if shift else 0.1))
 			KEY_F:
 				# 切换到下一个文件
 				var next_file_index = (current_file_index + 1) % rive_files.size()
