@@ -112,6 +112,7 @@ struct ViewerProps {
     Dictionary _scene_properties;
     FIT _fit = FIT::CONTAIN;
     ALIGN _alignment = ALIGN::CENTER;
+    bool _use_global_input = false;
 
     /* Events */
     PropEvent<String> path_changed;
@@ -208,6 +209,10 @@ struct ViewerProps {
 
     bool paused() const {
         return _paused;
+    }
+
+    bool use_global_input() const {
+        return _use_global_input;
     }
 
     Dictionary scene_properties() const {
@@ -311,6 +316,12 @@ struct ViewerProps {
     void paused(bool value) {
         if (_paused != value) {
             _paused = value;
+        }
+    }
+
+    void use_global_input(bool value) {
+        if (_use_global_input != value) {
+            _use_global_input = value;
         }
     }
 

@@ -4,6 +4,8 @@
 // stdlib
 #include <cstdio>
 
+#include <cstring>
+
 // godot-cpp
 #include <godot_cpp/variant/builtin_types.hpp>
 
@@ -45,64 +47,32 @@ struct SkiaInstance {
     }
 
     PackedByteArray bytes() const {
-        SkPixmap pixmap;
-        PackedByteArray bytes;
-        if (!surface) {
-            return bytes;
-        }
-        if (!surface->peekPixels(&pixmap)) {
-            return bytes;
-        }
-        auto info = pixmap.info();
-        
-        // Copy pixel data
-        size_t bytes_per_pixel = info.bytesPerPixel();
-        size_t row_bytes = pixmap.rowBytes();
-        
-        bytes.resize(row_bytes * info.height());
-        
-        // Sample a few pixels to check if they have data
-        uint32_t non_zero_count = 0;
-        uint32_t sample_pixels[4] = {0};
-        int sample_count = 0;
-        uint32_t min_alpha = 255, max_alpha = 0;
-        
-        for (int y = 0; y < info.height(); y++) {
-            for (int x = 0; x < info.width(); x++) {
-                int offset = y * row_bytes + x * bytes_per_pixel;
-                auto addr = pixmap.addr32(x, y);
-                uint32_t pixel_value = *addr;
-                bytes.encode_u32(offset, pixel_value);
-                
-                if (pixel_value != 0) {
-                    non_zero_count++;
-                    
-                    // Extract alpha channel (highest 8 bits)
-                    uint32_t alpha = (pixel_value >> 24) & 0xFF;
-                    if (alpha < min_alpha) min_alpha = alpha;
-                    if (alpha > max_alpha) max_alpha = alpha;
-                    
-                    // Sample diverse pixels: different areas and alpha values
-                    if (sample_count < 4) {
-                        // Sample from different quadrants and alpha ranges
-                        bool should_sample = false;
-                        if (sample_count == 0) should_sample = true; // First non-zero
-                        else if (sample_count == 1 && alpha > 128) should_sample = true; // High alpha
-                        else if (sample_count == 2 && (x > info.width()/2 || y > info.height()/2)) should_sample = true; // Different area
-                        else if (sample_count == 3 && alpha != (sample_pixels[0] >> 24)) should_sample = true; // Different alpha
-                        
-                        if (should_sample) {
-                            sample_pixels[sample_count] = pixel_value;
-                            sample_count++;
-                        }
-                    }
-                }
+        PackedByteArray out;
+        if (!surface) return out;
+        SkPixmap pm;
+        if (!surface->peekPixels(&pm)) return out;
+        const auto info = pm.info();
+        const int w = info.width();
+        const int h = info.height();
+        const size_t bpp = info.bytesPerPixel();
+        const size_t tight_row = (size_t)w * bpp;
+        out.resize(tight_row * h);
+        uint8_t *dst = out.ptrw();
+        const uint8_t *src = static_cast<const uint8_t *>(pm.addr());
+        if (pm.rowBytes() == tight_row) {
+            // 连续内存，整块复制
+            if (src && dst && tight_row * h) {
+                memcpy(dst, src, tight_row * h);
+            }
+        } else {
+            // 非紧凑行距，逐行复制到紧凑缓冲
+            for (int y = 0; y < h; ++y) {
+                const uint8_t *row_src = static_cast<const uint8_t *>(pm.addr(0, y));
+                uint8_t *row_dst = dst + (size_t)y * tight_row;
+                if (row_src) memcpy(row_dst, row_src, tight_row);
             }
         }
-        
-        // Debug: Pixel analysis completed
-        
-        return bytes;
+        return out;
     }
 
     void clear() {
@@ -112,18 +82,20 @@ struct SkiaInstance {
    private:
     void on_transform_changed() {
         auto info = image_info();
-        surface = SkSurfaces::Raster(info);
-        if (!surface) {
-            printf("[RiveViewer] ERROR: Failed to create SkSurface with dimensions %dx%d\n", 
-                   info.width(), info.height());
-            return;
-        }
-        renderer = rivestd::make_unique<SkiaRenderer>(surface->getCanvas());
-        if (!renderer) {
-            printf("[RiveViewer] ERROR: Failed to create SkiaRenderer\n");
-        } else {
-            printf("[RiveViewer] SUCCESS: Created renderer with surface %dx%d\n", 
-                   info.width(), info.height());
+        bool need_recreate = !surface || surface->width() != info.width() || surface->height() != info.height();
+        if (need_recreate) {
+            surface = SkSurfaces::Raster(info);
+            if (!surface) {
+                printf("[RiveViewer] ERROR: Failed to create SkSurface with dimensions %dx%d\n", info.width(), info.height());
+                renderer.reset();
+                return;
+            }
+            renderer = rivestd::make_unique<SkiaRenderer>(surface->getCanvas());
+            if (!renderer) {
+                printf("[RiveViewer] ERROR: Failed to create SkiaRenderer\n");
+            } else {
+                printf("[RiveViewer] SUCCESS: Created renderer with surface %dx%d\n", info.width(), info.height());
+            }
         }
     }
 };

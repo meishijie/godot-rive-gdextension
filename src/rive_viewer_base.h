@@ -107,6 +107,10 @@ class RiveViewerBase {
         props.paused(value);
     }
 
+    void set_use_global_input(bool value) {
+        props.use_global_input(value);
+    }
+
     void set_size(Vector2 value) {
         props.size(value.x, value.y);
     }
@@ -137,6 +141,10 @@ class RiveViewerBase {
         return props.paused();
     }
 
+    bool get_use_global_input() const {
+        return props.use_global_input();
+    }
+
     Vector2 get_size() const {
         return props.size();
     }
@@ -164,6 +172,11 @@ class RiveViewerBase {
     void press_mouse(Vector2 position);
     void release_mouse(Vector2 position);
     void move_mouse(Vector2 position);
+
+    // Convenience utilities
+    Vector2 local_to_rive(Vector2 local) const;
+    bool set_node_position_from_local(String node_name, Vector2 local);
+    bool set_node_position_from_screen(String node_name);
 };
 
 #define RIVE_VIEWER_GET(type, prop_name) \
@@ -187,6 +200,7 @@ class RiveViewerBase {
     ADD_PROP(cls, Variant::BOOL, disable_press);                                                 \
     ADD_PROP(cls, Variant::BOOL, disable_hover);                                                 \
     ADD_PROP(cls, Variant::BOOL, paused);                                                        \
+    ADD_PROP(cls, Variant::BOOL, use_global_input);                                              \
     ADD_SIGNAL(MethodInfo("pressed", PropertyInfo(Variant::VECTOR2, "position")));               \
     ADD_SIGNAL(MethodInfo("released", PropertyInfo(Variant::VECTOR2, "position")));              \
     ADD_SIGNAL(MethodInfo(                                                                       \
@@ -206,7 +220,12 @@ class RiveViewerBase {
     ClassDB::bind_method(D_METHOD("go_to_animation", "animation"), &cls::go_to_animation);       \
     ClassDB::bind_method(D_METHOD("press_mouse", "position"), &cls::press_mouse);                \
     ClassDB::bind_method(D_METHOD("release_mouse", "position"), &cls::release_mouse);            \
-    ClassDB::bind_method(D_METHOD("move_mouse", "position"), &cls::move_mouse)
+    ClassDB::bind_method(D_METHOD("move_mouse", "position"), &cls::move_mouse);                 \
+    ClassDB::bind_method(D_METHOD("local_to_rive", "local"), &cls::local_to_rive);               \
+    ClassDB::bind_method(D_METHOD("set_node_position_from_local", "name", "local"),              \
+        &cls::set_node_position_from_local);                                                        \
+    ClassDB::bind_method(D_METHOD("set_node_position_from_screen", "name"),                       \
+        &cls::set_node_position_from_screen)
 
 #define RIVE_VIEWER_WRAPPER(cls)                                             \
    private:                                                                  \
@@ -242,6 +261,7 @@ class RiveViewerBase {
     RIVE_VIEWER_SETGET(bool, disable_press)                                  \
     RIVE_VIEWER_SETGET(bool, disable_hover)                                  \
     RIVE_VIEWER_SETGET(bool, paused)                                         \
+    RIVE_VIEWER_SETGET(bool, use_global_input)                                \
     RIVE_VIEWER_GET(float, elapsed_time)                                     \
     RIVE_VIEWER_GET(Ref<RiveFile>, file)                                     \
     RIVE_VIEWER_GET(Ref<RiveArtboard>, artboard)                             \
@@ -264,6 +284,15 @@ class RiveViewerBase {
     }                                                                        \
     void move_mouse(Vector2 position) {                                      \
         base.move_mouse(position);                                           \
+    }                                                                        \
+    Vector2 local_to_rive(Vector2 local) {                                   \
+        return base.local_to_rive(local);                                    \
+    }                                                                        \
+    bool set_node_position_from_local(String name, Vector2 local) {          \
+        return base.set_node_position_from_local(name, local);               \
+    }                                                                        \
+    bool set_node_position_from_screen(String name) {                         \
+        return base.set_node_position_from_screen(name);                      \
     }
 
 #endif

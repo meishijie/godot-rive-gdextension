@@ -2,7 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dwgx8rvieqcp8" path="res://demo_control.gd" id="1_hl33n"]
 
-[node name="DemoControl" type="VBoxContainer"]
+[node name="DemoControl" type="Control"]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -12,25 +13,26 @@ script = ExtResource("1_hl33n")
 
 [node name="Label" type="Label" parent="."]
 custom_minimum_size = Vector2(2.08165e-12, 50)
-layout_mode = 2
+layout_mode = 0
+offset_right = 1152.0
+offset_bottom = 50.0
 text = "Increase the number of rooms:"
 vertical_alignment = 1
 
-[node name="HSlider" type="HSlider" parent="."]
-custom_minimum_size = Vector2(2.08165e-12, 50)
-layout_mode = 2
-min_value = 3.0
-max_value = 6.0
-value = 3.0
-tick_count = 4
-
 [node name="RiveViewer" type="RiveViewer" parent="."]
-file_path = "res://examples/house_resizing.riv"
+file_path = "res://lilo.riv"
 artboard = 0
-scene = -1
-animation = 3
+scene = 0
+animation = -1
+IsClose = false
 unique_name_in_owner = true
-layout_mode = 2
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 228.0
+offset_right = -296.0
+grow_horizontal = 2
+grow_vertical = 2
 size_flags_vertical = 3
-
-[connection signal="value_changed" from="HSlider" to="." method="_on_h_slider_value_changed"]

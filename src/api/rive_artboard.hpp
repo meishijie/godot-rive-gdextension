@@ -15,6 +15,8 @@
 #include <rive/animation/state_machine_instance.hpp>
 #include <rive/artboard.hpp>
 #include <rive/math/transform_components.hpp>
+#include <rive/transform_component.hpp>
+#include <rive/node.hpp>
 
 // extension
 #include "api/rive_animation.hpp"
@@ -74,6 +76,8 @@ class RiveArtboard : public Resource {
         ClassDB::bind_method(D_METHOD("reset_animation", "index"), &RiveArtboard::reset_animation);
         ClassDB::bind_method(D_METHOD("get_world_transform"), &RiveArtboard::get_world_transform);
         ClassDB::bind_method(D_METHOD("queue_redraw"), &RiveArtboard::queue_redraw);
+        ClassDB::bind_method(D_METHOD("set_node_position", "name", "position"), &RiveArtboard::set_node_position);
+
     }
 
     void _instantiate_scenes() {
@@ -206,6 +210,18 @@ class RiveArtboard : public Resource {
 
     Ref<RiveAnimation> reset_animation(int index) {
         return animations.reinstantiate(index);
+    }
+
+    bool set_node_position(String node_name, Vector2 position) {
+        if (!artboard) return false;
+        // 直接使用 rive::Artboard::find<T>(name)
+        if (!artboard) return false;
+        rive::Node* node = artboard->find<rive::Node>(node_name.utf8().get_data());
+        if (!node) return false;
+        node->x(position.x);
+        node->y(position.y);
+        artboard->addDirt(rive::ComponentDirt::Components, false);
+        return true;
     }
 
     void queue_redraw() {

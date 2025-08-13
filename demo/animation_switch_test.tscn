@@ -4,9 +4,10 @@
 
 [node name="AnimationSwitchTest" type="Control"]
 layout_mode = 3
-anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_right = -466.0
+offset_bottom = -204.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1")
@@ -67,11 +68,9 @@ artboard = 0
 scene = -1
 animation = -1
 layout_mode = 1
-anchors_preset = -1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 480.0
-offset_right = -182.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -79,30 +78,30 @@ grow_vertical = 2
 file_path = "res://examples/juice.riv"
 artboard = 0
 scene = -1
-animation = 0
+animation = -1
 layout_mode = 1
 anchors_preset = -1
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 932.0
-offset_top = -39.0
-offset_right = 94.0
-offset_bottom = -409.0
+offset_left = 100.0
+offset_top = 276.0
+offset_right = -738.0
+offset_bottom = -94.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="RiveViewer3" type="RiveViewer" parent="."]
-file_path = "res://examples/off_road_car.riv"
+file_path = "res://lilo.riv"
+use_global_input = true
 artboard = 0
-scene = -1
-animation = 0
+scene = 0
+animation = -1
+IsClose = null
 layout_mode = 1
 anchors_preset = -1
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 924.0
-offset_top = 146.0
-offset_right = 127.0
-offset_bottom = -180.0
+offset_left = -239.0
+offset_right = -335.0
 grow_horizontal = 2
 grow_vertical = 2

@@ -7,9 +7,13 @@
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/rendering_device.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/display_server.hpp>
+#include <godot_cpp/classes/window.hpp>
 #include <godot_cpp/core/binder_common.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+
+#include "include/core/SkCanvas.h"
 
 // rive-cpp
 #include <rive/animation/linear_animation.hpp>
@@ -39,6 +43,10 @@ void RiveViewerBase::on_input_event(const Ref<InputEvent> &event) {
     if (!mouse_event || is_editor_hint()) return;
 
     Vector2 pos = mouse_event->get_position();
+    if (props.use_global_input() && Object::cast_to<Control>(owner) == nullptr) {
+        // 将全局(视口/画布)坐标转换为本地 CanvasItem 坐标，仅在非 Control（如 Node2D）时需要
+        pos = owner->make_canvas_position_local(pos);
+    }
 
     if (auto mouse_button = dynamic_cast<InputEventMouseButton *>(event.ptr())) {
         if (!props.disable_press() && mouse_button->is_pressed()) {
@@ -231,9 +239,7 @@ void RiveViewerBase::_on_size_changed(float w, float h) {
 void RiveViewerBase::_on_transform_changed() {
     inst.current_transform = inst.get_transform();
 
-    if (sk.renderer) {
-        sk.renderer->transform(inst.current_transform);
-    }
+    // 变换由 redraw() 内统一在绘制前应用，避免重复/累积
 
     PackedByteArray bytes = redraw();
     if (bytes.size() > 0 && !is_null(image) && !is_null(texture)) {
@@ -256,6 +262,15 @@ PackedByteArray RiveViewerBase::redraw() {
     auto artboard = inst.artboard();
 
     if (sk.surface && sk.renderer && exists(artboard)) {
+        // 确保每次绘制前将 Canvas 矩阵重置到单位矩阵，避免上一次变换累积
+        SkCanvas *canvas = sk.surface->getCanvas();
+        if (canvas) {
+            canvas->resetMatrix();
+        }
+        // 应用当前对齐/缩放变换
+        if (sk.renderer) {
+            sk.renderer->transform(inst.current_transform);
+        }
         sk.clear();
         inst.draw(sk.renderer.get());
         PackedByteArray bytes = sk.bytes();
@@ -275,7 +290,10 @@ PackedByteArray RiveViewerBase::frame(float delta) {
     }
 
     elapsed += delta;
-    inst.advance(delta);
+    bool changed = inst.advance(delta);
+    if (!changed) {
+        return PackedByteArray();
+    }
 
     PackedByteArray bytes = redraw();
 
@@ -357,3 +375,46 @@ void RiveViewerBase::release_mouse(Vector2 position) {
 void RiveViewerBase::move_mouse(Vector2 position) {
     inst.move_mouse(position);
 }
+
+Vector2 RiveViewerBase::local_to_rive(Vector2 local) const {
+    // 使用与渲染完全一致的变换矩阵（inst.current_transform）的逆矩阵来换算，避免偏移
+    auto ab = inst.artboard();
+    if (!exists(ab)) return Vector2();
+    rive::Mat2D inv = inst.get_inverse_transform();
+    const float *m = inv.values();
+    float x = m[0] * local.x + m[2] * local.y + m[4];
+    float y = m[1] * local.x + m[3] * local.y + m[5];
+    return Vector2(x, y);
+}
+
+bool RiveViewerBase::set_node_position_from_local(String node_name, Vector2 local) {
+    auto ab = inst.artboard();
+    if (!exists(ab)) return false;
+    // 将本地坐标转换为 Rive 坐标
+    Vector2 art = local_to_rive(local);
+    // 基于 artboard bounds 进行约束，避免越界
+    Rect2 b = ab->get_bounds();
+    art.x = std::clamp(art.x, b.position.x, b.position.x + b.size.x);
+    art.y = std::clamp(art.y, b.position.y, b.position.y + b.size.y);
+    return ab->set_node_position(node_name, art);
+}
+
+bool RiveViewerBase::set_node_position_from_screen(String node_name) {
+    // 1) 获取全局屏幕坐标（像素）
+    Vector2 screen = DisplayServer::get_singleton()->mouse_get_position();
+    // 2) 转到窗口内容坐标：减去窗口左上角位置，并除以内容缩放
+    Window *win = owner ? owner->get_window() : nullptr;
+    if (!win) { return false; }
+    Vector2 win_pos = win->get_position();
+    float scale = (float)win->get_content_scale_factor();
+    Vector2 in_window = (screen - win_pos) / scale;
+    // 3) 转到 Viewer 本地坐标
+    CanvasItem *ci = owner;
+    if (!ci) return false;
+    Transform2D gxf = ci->get_global_transform();
+    Transform2D inv = gxf.affine_inverse();
+    Vector2 local = inv.xform(in_window);
+    // 4) 直接复用已有的从本地坐标设置节点位置
+    return set_node_position_from_local(node_name, local);
+}
+
