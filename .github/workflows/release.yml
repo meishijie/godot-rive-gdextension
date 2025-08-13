@@ -1,0 +1,122 @@
+name: release-binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }} - ${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        target: [template_release, template_debug]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SCons
+        run: |
+          python -V
+          python -m pip install --upgrade pip
+          pip install scons
+
+      - name: Cache thirdparty builds (Skia, rive-cpp)
+        uses: actions/cache@v4
+        with:
+          path: |
+            thirdparty/rive-cpp/skia/dependencies/skia/out
+            thirdparty/rive-cpp/skia/renderer/build
+            thirdparty/rive-cpp/build
+          key: ${{ runner.os }}-deps-${{ hashFiles('thirdparty/rive-cpp/**') }}
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+        run: |
+          set -euo pipefail
+          CORES=$(sysctl -n hw.logicalcpu)
+          echo "Building macOS universal, target=${{ matrix.target }}"
+          scons platform=macos target=${{ matrix.target }} -j${CORES}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cores = [int]$env:NUMBER_OF_PROCESSORS
+          Write-Host "Building Windows, target=${{ matrix.target }}"
+          scons platform=windows target=${{ matrix.target }} -j $cores
+
+      - name: Package artifacts (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          name="rive-macOS-${{ matrix.target }}.zip"
+          if [ -d demo/bin ]; then
+            cd demo/bin
+            if compgen -G "*.framework" > /dev/null; then zip -r ../../dist/$name *.framework || true; fi
+            if compgen -G "*.dylib" > /dev/null; then zip -j ../../dist/$name *.dylib || true; fi
+            cd - >/dev/null
+          else
+            echo "No demo/bin found"
+          fi
+
+      - name: Package artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $name = "rive-Windows-${{ matrix.target }}.zip"
+          if (Test-Path "demo/bin") {
+            $dlls = Get-ChildItem -Recurse -Path demo/bin -Filter *.dll -ErrorAction SilentlyContinue
+            if ($dlls -and $dlls.Count -gt 0) {
+              Compress-Archive -Path $dlls.FullName -DestinationPath (Join-Path dist $name) -Force
+            } else { Write-Warning "No DLLs found" }
+          } else { Write-Warning "No demo/bin found" }
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ runner.os }}-${{ matrix.target }}
+          if-no-files-found: warn
+          path: |
+            dist/*.zip
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            all-artifacts/**/rive-*.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
