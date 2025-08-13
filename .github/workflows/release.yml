@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           CORES=$(sysctl -n hw.logicalcpu)
           echo "Building macOS universal, target=${{ matrix.target }}"
+          cd build
           scons platform=macos target=${{ matrix.target }} -j${CORES}
 
       - name: Build (Windows)
@@ -62,6 +63,7 @@ jobs:
         run: |
           $cores = [int]$env:NUMBER_OF_PROCESSORS
           Write-Host "Building Windows, target=${{ matrix.target }}"
+          Set-Location build
           scons platform=windows target=${{ matrix.target }} -j $cores
 
       - name: Package artifacts (macOS)
