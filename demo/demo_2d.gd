@@ -24,6 +24,7 @@ var rive_files = [
 	"res://examples/two_artboards.riv"
 ]
 
+
 var is_loading = false
 var load_timer = 0.0
 var load_timeout = 3.0  # 3秒超时
