@@ -22,8 +22,8 @@ echo "[info] Repo root: $ROOT_DIR"
 
 # 1) Clean extension build outputs (scons -c)
 if command -v scons >/dev/null 2>&1; then
-  echo "[clean] scons -c in build/"
-  (cd build && scons -c || true)
+  echo "[clean] scons -c in build/ (quiet)"
+  (cd build && scons -c -Q >/dev/null 2>&1) || echo "[warn] scons clean in build/ reported issues (likely missing deps). Continuing..."
 else
   echo "[warn] scons not found; skip scons -c"
 fi
@@ -31,8 +31,8 @@ fi
 # 2) Clean godot-cpp build outputs
 if [[ -f godot-cpp/SConstruct ]]; then
   if command -v scons >/dev/null 2>&1; then
-    echo "[clean] scons -c in godot-cpp/"
-    (cd godot-cpp && scons -c || true)
+    echo "[clean] scons -c in godot-cpp/ (quiet)"
+    (cd godot-cpp && scons -c -Q >/dev/null 2>&1) || echo "[warn] scons clean in godot-cpp/ reported issues. Continuing..."
   fi
 fi
 
