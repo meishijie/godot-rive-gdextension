@@ -1,0 +1,73 @@
+name: build-gdextension
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        target: [template_release, template_debug]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install SCons
+        run: |
+          python -V
+          python -m pip install --upgrade pip
+          pip install scons
+
+      - name: Cache thirdparty builds (Skia, rive-cpp)
+        uses: actions/cache@v4
+        with:
+          path: |
+            thirdparty/rive-cpp/skia/dependencies/skia/out
+            thirdparty/rive-cpp/skia/renderer/build
+            thirdparty/rive-cpp/build
+          key: ${{ runner.os }}-deps-${{ hashFiles('thirdparty/rive-cpp/**') }}
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          # 指示 SCons/Clang 以通用架构编译（项目默认支持 universal；这里显式提示）
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+        run: |
+          set -euo pipefail
+          CORES=$(sysctl -n hw.logicalcpu)
+          echo "Building macOS universal (${CORES} cores), target=${{ matrix.target }}"
+          scons platform=macos target=${{ matrix.target }} -j${CORES}
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cores = [int]$env:NUMBER_OF_PROCESSORS
+          scons platform=windows target=${{ matrix.target }} -j $cores
+
+      - name: Upload artifact (Windows DLL or macOS Framework)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rive-${{ runner.os }}-${{ matrix.target }}
+          if-no-files-found: warn
+          path: |
+            demo/bin/**/*.dll
+            demo/bin/**/*.framework/**
+            demo/bin/**/*.dylib
+
