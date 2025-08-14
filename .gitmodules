@@ -4,3 +4,4 @@
 [submodule "thirdparty/rive-cpp"]
 	path = thirdparty/rive-cpp
 	url = https://github.com/meishijie/rive-runtime.git
+	branch = ci-custom
